@@ -941,17 +941,6 @@ require('lazy').setup({
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   {
-    'akinsho/toggleterm.nvim',
-    version = '*',
-    config = function()
-      require('toggleterm').setup {
-        direction = 'vertical',
-        size = vim.o.columns * 0.35,
-      }
-    end,
-  },
-
-  {
     'supermaven-inc/supermaven-nvim',
     config = function()
       require('supermaven-nvim').setup {}
@@ -986,8 +975,24 @@ require('lazy').setup({
   },
 })
 
--- The line beneath this is called `modeline`. See `:help modeline`
--- vim: ts=2 sts=2 sw=2 et
+local function toggle_terminal()
+  local term_bufnr = vim.fn.bufnr 'term://'
+
+  if term_bufnr ~= -1 then
+    local term_winnr = vim.fn.bufwinnr(term_bufnr)
+    if term_winnr ~= -1 then
+      vim.cmd(term_winnr .. 'close')
+    else
+      vim.cmd('vertical sbuffer ' .. term_bufnr)
+      vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.35))
+    end
+  else
+    vim.cmd 'vertical new'
+    vim.cmd 'terminal'
+    vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.35))
+    vim.cmd 'startinsert'
+  end
+end
 
 vim.opt.guicursor = 'i-ci-ve:hor30'
 vim.opt.relativenumber = true
@@ -1008,4 +1013,4 @@ vim.keymap.set('t', 'KJ', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('n', '<C-\\>', ':Neotree toggle<CR>', { desc = 'Toggle [N]eotree' })
-vim.keymap.set('n', '\\', ':ToggleTerm<CR>', { desc = 'Toggle [T]erminal' })
+vim.keymap.set('n', '\\', toggle_terminal, { desc = 'Toggle [T]erminal' })
