@@ -620,6 +620,11 @@ require('lazy').setup({
         -- tsserver = {},
         --
 
+        tsserver = {},
+        zls = {},
+        pyright = {},
+        clangd = {},
+        gopls = {},
         lua_ls = {
           -- cmd = {...},
           -- filetypes = { ...},
@@ -701,11 +706,20 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        go = { 'goimports', 'gofmt' },
+        javascript = { 'biome' },
+        typescript = { 'biome' },
+        javascriptreact = { 'biome' },
+        typescriptreact = { 'biome' },
+        python = { 'ruff_format' },
+        html = { 'prettierd' },
+        make = { 'makefmt' },
+        css = { 'prettierd' },
+        zig = { 'zigfmt' },
+        json = { 'prettierd' },
+        c = { 'clang-format' },
+        cpp = { 'clang-format' },
+        markdown = { 'prettierd' },
       },
     },
   },
@@ -920,11 +934,29 @@ require('lazy').setup({
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
   -- require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
-  -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.indent_line',
+  require 'kickstart.plugins.lint',
+  require 'kickstart.plugins.autopairs',
+  require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+
+  {
+    'akinsho/toggleterm.nvim',
+    version = '*',
+    config = function()
+      require('toggleterm').setup {
+        direction = 'vertical',
+        size = vim.o.columns * 0.35,
+      }
+    end,
+  },
+
+  {
+    'supermaven-inc/supermaven-nvim',
+    config = function()
+      require('supermaven-nvim').setup {}
+    end,
+  },
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
@@ -956,3 +988,24 @@ require('lazy').setup({
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+
+vim.opt.guicursor = 'i-ci-ve:hor30'
+vim.opt.relativenumber = true
+vim.opt.tabstop = 2
+vim.opt.shiftwidth = 2
+vim.opt.expandtab = true
+vim.opt.colorcolumn = '79'
+vim.keymap.set('i', 'kj', '<Esc>', { noremap = true })
+vim.keymap.set('i', 'KJ', '<Esc>', { noremap = true })
+vim.keymap.set('i', 'Kj', '<Esc>', { noremap = true })
+vim.keymap.set('i', 'kJ', '<Esc>', { noremap = true })
+vim.keymap.set('v', 'kj', '<Esc>', { noremap = true })
+vim.keymap.set('v', 'KJ', '<Esc>', { noremap = true })
+vim.keymap.set('v', 'Kj', '<Esc>', { noremap = true })
+vim.keymap.set('v', 'kJ', '<Esc>', { noremap = true })
+vim.keymap.set('t', 'kj', '<C-\\><C-n>', { noremap = true })
+vim.keymap.set('t', 'KJ', '<C-\\><C-n>', { noremap = true })
+vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
+vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
+vim.keymap.set('n', '<C-\\>', ':Neotree toggle<CR>', { desc = 'Toggle [N]eotree' })
+vim.keymap.set('n', '\\', ':ToggleTerm<CR>', { desc = 'Toggle [T]erminal' })
