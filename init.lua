@@ -943,12 +943,7 @@ require('lazy').setup({
     dir = '~/.config/nvim/lua/custom/plugins/llmbuffer.lua',
     dependencies = { 'nvim-lua/plenary.nvim', lazy = true },
     config = function()
-      require('custom.plugins.llmbuffer').setup {
-        keybinding = '<leader>ll',
-        model = 'google/gemini-flash-1.5-exp',
-        api_endpoint = 'https://openrouter.ai/api/v1/chat/completions',
-        api_key = vim.fn.getenv 'OPENROUTER_API_KEY',
-      }
+      require('custom.plugins.llmbuffer').setup()
     end,
   },
 
