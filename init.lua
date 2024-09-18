@@ -939,6 +939,19 @@ require('lazy').setup({
     end,
   },
 
+  {
+    dir = '~/.config/nvim/lua/custom/plugins/llmbuffer.lua',
+    dependencies = { 'nvim-lua/plenary.nvim', lazy = true },
+    config = function()
+      require('custom.plugins.llmbuffer').setup {
+        keybinding = '<leader>ll',
+        model = 'google/gemini-flash-1.5-exp',
+        api_endpoint = 'https://openrouter.ai/api/v1/chat/completions',
+        api_key = vim.fn.getenv 'OPENROUTER_API_KEY',
+      }
+    end,
+  },
+
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
   --
