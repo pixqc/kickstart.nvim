@@ -31,7 +31,7 @@ local configs = {
     spec = 'openrouter',
     keybinding = '<leader>lk',
     model = 'google/gemini-flash-1.5-exp',
-    api_endpoint = 'https://openrouter.ai/api/v1',
+    api_endpoint = 'https://openrouter.ai/api/v1/chat/completions',
     api_key = vim.fn.getenv 'OPENROUTER_API_KEY',
   },
   {
@@ -44,11 +44,11 @@ local configs = {
   },
 }
 
-local function get_url(config)
-  if config.spec == 'openrouter' then
-    return string.format('%s/chat/completions', config.api_endpoint)
-  elseif config.spec == 'aistudio' then
-    return string.format('%s/models/%s:streamGenerateContent?alt=sse&key=%s', config.api_endpoint, config.model, config.api_key)
+local function get_url(cfg)
+  if cfg.spec == 'openrouter' then
+    return cfg.api_endpoint
+  elseif cfg.spec == 'aistudio' then
+    return string.format('%s/models/%s:streamGenerateContent?alt=sse&key=%s', cfg.api_endpoint, cfg.model, cfg.api_key)
   end
 end
 
@@ -84,16 +84,55 @@ local sse_parser = {
   end,
 }
 
-local function format_aistudio(messages)
+local function parse_buffer(spec)
   local formatted = {}
-  for _, msg in ipairs(messages) do
-    local role = msg.role == 'assistant' and 'model' or msg.role
-    table.insert(formatted, {
-      role = role,
-      parts = { { text = msg.content } },
+  local messages = {}
+  local assistant_mode = false
+  local assistant_content = {}
+
+  for _, line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+    if line:match '^<assistant>' then
+      assistant_mode = true
+    elseif line:match '^</assistant>' then
+      assistant_mode = false
+      if #assistant_content > 0 then
+        table.insert(messages, {
+          role = 'assistant',
+          content = table.concat(assistant_content, '\n'),
+        })
+        assistant_content = {}
+      end
+    elseif assistant_mode then
+      table.insert(assistant_content, line)
+    else
+      if line ~= '' then
+        table.insert(messages, {
+          role = 'user',
+          content = line,
+        })
+      end
+    end
+  end
+
+  if assistant_mode and #assistant_content > 0 then
+    table.insert(messages, {
+      role = 'assistant',
+      content = table.concat(assistant_content, '\n'),
     })
   end
-  return formatted
+
+  if spec == 'aistudio' then
+    for _, msg in ipairs(messages) do
+      local role = msg.role == 'assistant' and 'model' or msg.role
+      table.insert(formatted, {
+        role = role,
+        parts = { { text = msg.content } },
+      })
+    end
+    return formatted
+  else
+    return messages
+  end
 end
 
 local function get_curl_args(data, config)
@@ -119,39 +158,6 @@ local function get_curl_args(data, config)
   return base_args
 end
 
--- turn buffer to messages
-local function parse_buffer()
-  local messages = {}
-  local assistant_mode = false
-  local assistant_content = {}
-
-  for _, line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
-    if line:match '<assistant>' then
-      assistant_mode = true
-    elseif line:match '</assistant>' then
-      assistant_mode = false
-      if #assistant_content > 0 then
-        table.insert(messages, {
-          role = 'assistant',
-          content = table.concat(assistant_content, '\n'),
-        })
-        assistant_content = {}
-      end
-    elseif assistant_mode then
-      table.insert(assistant_content, line)
-    else
-      if line ~= '' then
-        table.insert(messages, {
-          role = 'user',
-          content = line,
-        })
-      end
-    end
-  end
-
-  return messages
-end
-
 function M.chat(config_name)
   local config
   for _, cfg in ipairs(configs) do
@@ -161,10 +167,7 @@ function M.chat(config_name)
     end
   end
 
-  local messages = parse_buffer()
-  if config.spec == 'aistudio' then
-    messages = format_aistudio(messages)
-  end
+  local messages = parse_buffer(config.spec)
   local payload
   if config.spec == 'openrouter' then
     payload = {
@@ -181,7 +184,7 @@ function M.chat(config_name)
   local curl_args = get_curl_args(payload, config)
   log('INFO', 'curl ' .. table.concat(curl_args, ' '))
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local stream_end_extmark_id = vim.api.nvim_buf_set_extmark(0, ns_id, row - 1, col, {})
+  local stream_end_extmark_id = vim.api.nvim_buf_set_extmark(0, ns_id, row - 1, col + 1, {})
   write_string_at_extmark('\n<assistant>\n', stream_end_extmark_id)
 
   Job:new({
