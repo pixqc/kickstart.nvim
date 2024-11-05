@@ -626,7 +626,6 @@ require('lazy').setup({
         clangd = {},
         gopls = {},
         ruff = {},
-
         lua_ls = {
           -- cmd = {...},
           -- filetypes = { ...},
@@ -932,21 +931,6 @@ require('lazy').setup({
   require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
-  {
-    'supermaven-inc/supermaven-nvim',
-    config = function()
-      require('supermaven-nvim').setup {}
-    end,
-  },
-
-  {
-    dir = '~/.config/nvim/lua/custom/plugins/llmbuffer.lua',
-    dependencies = { 'nvim-lua/plenary.nvim', lazy = true },
-    config = function()
-      require('custom.plugins.llmbuffer').setup()
-    end,
-  },
-
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
   --
@@ -1014,5 +998,3 @@ vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('n', '<C-\\>', ':Neotree toggle<CR>', { desc = 'Toggle [N]eotree' })
 vim.keymap.set('n', '\\', toggle_terminal, { desc = 'Toggle [T]erminal' })
-vim.keymap.set('n', '<leader>ls', ':SupermavenStart<CR>', { desc = 'Start autocomplete' })
-vim.keymap.set('n', '<leader>ld', ':SupermavenStop<CR>', { desc = 'Stop autocomplete' })
