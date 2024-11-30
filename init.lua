@@ -185,10 +185,10 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 --  Use CTRL+<hjkl> to switch between windows
 --
 --  See `:help wincmd` for a list of all window commands
-vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
-vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
-vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
-vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+vim.keymap.set({ 'n', 'v' }, '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
+vim.keymap.set({ 'n', 'v' }, '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
+vim.keymap.set({ 'n', 'v' }, '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
+vim.keymap.set({ 'n', 'v' }, '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -915,6 +915,39 @@ require('lazy').setup({
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
 
+  {
+    'mrcjkb/haskell-tools.nvim',
+    version = '^4',
+    formattingProvider = 'ormolu',
+  },
+
+  {
+    'zbirenbaum/copilot.lua',
+    config = function()
+      require('copilot').setup {
+        suggestion = { enabled = false },
+      }
+    end,
+  },
+
+  {
+    'CopilotC-Nvim/CopilotChat.nvim',
+    branch = 'canary',
+    dependencies = {
+      { 'zbirenbaum/copilot.lua' },
+      { 'nvim-lua/plenary.nvim' },
+    },
+    build = 'make tiktoken',
+    opts = {
+      mappings = {
+        reset = {
+          normal = '<C-n>',
+          insert = '<C-n>',
+        },
+      },
+    },
+  },
+
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
@@ -978,6 +1011,11 @@ local function toggle_terminal()
   end
 end
 
+local function toggle_chat()
+  vim.cmd 'CopilotChatToggle'
+  vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.35))
+end
+
 vim.opt.guicursor = 'i-ci-ve:hor30'
 vim.opt.relativenumber = true
 vim.opt.tabstop = 2
@@ -998,3 +1036,4 @@ vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('n', '<C-\\>', ':Neotree toggle<CR>', { desc = 'Toggle [N]eotree' })
 vim.keymap.set('n', '\\', toggle_terminal, { desc = 'Toggle [T]erminal' })
+vim.keymap.set('n', '<leader>c', toggle_chat, { desc = 'Toggle Copilot Chat and resize pane' })
