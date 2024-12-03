@@ -624,7 +624,6 @@ require('lazy').setup({
         zls = {},
         pyright = {},
         clangd = {},
-        gopls = {},
         ruff = {},
         lua_ls = {
           -- cmd = {...},
@@ -915,13 +914,13 @@ require('lazy').setup({
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
 
-  {
+  { -- uses local ghcup installation of ghc, hls, etc
     'mrcjkb/haskell-tools.nvim',
     version = '^4',
     formattingProvider = 'ormolu',
   },
 
-  {
+  { -- Lighweight alternative to github/copilot.vim
     'zbirenbaum/copilot.lua',
     config = function()
       require('copilot').setup {
@@ -930,7 +929,7 @@ require('lazy').setup({
     end,
   },
 
-  {
+  { -- Copilot chat on neovim ^_^
     'CopilotC-Nvim/CopilotChat.nvim',
     branch = 'canary',
     dependencies = {
@@ -939,11 +938,17 @@ require('lazy').setup({
     },
     build = 'make tiktoken',
     opts = {
+      system_prompt = '',
+      model = 'claude-3.5-sonnet',
+      chat_autocomplete = false,
       mappings = {
         reset = {
           normal = '<C-n>',
           insert = '<C-n>',
         },
+      },
+      window = {
+        width = 0.35,
       },
     },
   },
@@ -1011,17 +1016,12 @@ local function toggle_terminal()
   end
 end
 
-local function toggle_chat()
-  vim.cmd 'CopilotChatToggle'
-  vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.35))
-end
-
 vim.opt.guicursor = 'i-ci-ve:hor30'
 vim.opt.relativenumber = true
 vim.opt.tabstop = 2
 vim.opt.shiftwidth = 2
 vim.opt.expandtab = true
-vim.opt.colorcolumn = '79'
+-- vim.opt.colorcolumn = '79'
 vim.keymap.set('i', 'kj', '<Esc>', { noremap = true })
 vim.keymap.set('i', 'KJ', '<Esc>', { noremap = true })
 vim.keymap.set('i', 'Kj', '<Esc>', { noremap = true })
@@ -1036,4 +1036,4 @@ vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('n', '<C-\\>', ':Neotree toggle<CR>', { desc = 'Toggle [N]eotree' })
 vim.keymap.set('n', '\\', toggle_terminal, { desc = 'Toggle [T]erminal' })
-vim.keymap.set('n', '<leader>c', toggle_chat, { desc = 'Toggle Copilot Chat and resize pane' })
+vim.keymap.set('n', '|', ':CopilotChatToggle<CR>', { desc = 'Toggle Copilot Chat' })
