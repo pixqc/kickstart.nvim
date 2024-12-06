@@ -669,6 +669,7 @@ require('lazy').setup({
           end,
         },
       }
+      require('lspconfig').hls.setup {}
     end,
   },
 
@@ -706,19 +707,15 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        go = { 'goimports', 'gofmt' },
         javascript = { 'biome' },
         typescript = { 'biome' },
         javascriptreact = { 'biome' },
         typescriptreact = { 'biome' },
         python = { 'ruff', 'ruff_format' },
         html = { 'prettierd' },
-        make = { 'makefmt' },
         css = { 'prettierd' },
         zig = { 'zigfmt' },
         json = { 'prettierd' },
-        c = { 'clang-format' },
-        cpp = { 'clang-format' },
       },
     },
   },
@@ -912,12 +909,6 @@ require('lazy').setup({
     --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
-  },
-
-  { -- uses local ghcup installation of ghc, hls, etc
-    'mrcjkb/haskell-tools.nvim',
-    version = '^4',
-    formattingProvider = 'ormolu',
   },
 
   { -- Lighweight alternative to github/copilot.vim
