@@ -996,13 +996,16 @@ local function toggle_terminal()
     if term_winnr ~= -1 then
       vim.cmd(term_winnr .. 'close')
     else
-      vim.cmd('vertical sbuffer ' .. term_bufnr)
-      vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.35))
+      vim.cmd 'split'
+      vim.cmd 'wincmd j'
+      vim.cmd('buffer ' .. term_bufnr)
+      vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
     end
   else
-    vim.cmd 'vertical new'
+    vim.cmd 'split'
+    vim.cmd 'wincmd j'
     vim.cmd 'terminal'
-    vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.35))
+    vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
     vim.cmd 'startinsert'
   end
 end
@@ -1025,6 +1028,6 @@ vim.keymap.set('t', 'kj', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'KJ', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
 vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
-vim.keymap.set('n', '<C-\\>', ':Neotree toggle<CR>', { desc = 'Toggle [N]eotree' })
-vim.keymap.set('n', '\\', toggle_terminal, { desc = 'Toggle [T]erminal' })
-vim.keymap.set('n', '|', ':CopilotChatToggle<CR>', { desc = 'Toggle Copilot Chat' })
+vim.keymap.set('n', '<C-\\>', toggle_terminal, { desc = 'Toggle Terminal' })
+vim.keymap.set('n', '|', ':Neotree toggle<CR>', { desc = 'Toggle Neotree' })
+vim.keymap.set('n', '\\', ':CopilotChatToggle<CR>', { desc = 'Toggle Copilot Chat' })
