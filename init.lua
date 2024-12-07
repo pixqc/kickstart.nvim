@@ -974,38 +974,19 @@ require('lazy').setup {
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   -- { import = 'custom.plugins' },
 
-  { -- cant install another custom local plugin tho, which is weird
+  {
     name = 'simpleterm',
-    dir = vim.fn.stdpath 'config' .. '/lua/custom/plugins',
-    lazy = false,
+    dir = vim.fn.stdpath 'config' .. '/lua/custom/plugins/simpleterm',
     config = function()
-      local function toggle_terminal()
-        local term_bufnr = vim.fn.bufnr 'term://'
-        if term_bufnr ~= -1 then
-          local term_winnr = vim.fn.bufwinnr(term_bufnr)
-          if term_winnr ~= -1 then
-            vim.cmd(term_winnr .. 'close')
-          else
-            vim.cmd 'split'
-            vim.cmd 'wincmd j'
-            vim.cmd('buffer ' .. term_bufnr)
-            vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
-          end
-        else
-          vim.cmd 'split'
-          vim.cmd 'wincmd j'
-          vim.cmd 'terminal'
-          vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
-          vim.cmd 'startinsert'
-        end
-      end
+      require('custom.plugins.simpleterm').setup()
+    end,
+  },
 
-      vim.keymap.set('n', '<C-\\>', toggle_terminal)
-      vim.keymap.set('t', '<C-\\>', '<cmd>close<CR>')
-      vim.keymap.set('t', 'kj', '<C-\\><C-n>', { noremap = true })
-      vim.keymap.set('t', 'KJ', '<C-\\><C-n>', { noremap = true })
-      vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
-      vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
+  {
+    name = 'neochat',
+    dir = vim.fn.stdpath 'config' .. '/lua/custom/plugins/neochat',
+    config = function()
+      require('custom.plugins.neochat').setup()
     end,
   },
 
