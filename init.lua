@@ -227,7 +227,7 @@ vim.opt.rtp:prepend(lazypath)
 --    :Lazy update
 --
 -- NOTE: Here is where you install your plugins.
-require('lazy').setup({
+require('lazy').setup {
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
 
@@ -628,7 +628,7 @@ require('lazy').setup({
         -- ts_ls = {},
         --
 
-        tsserver = {},
+        ts_ls = {},
         zls = {},
         pyright = {},
         clangd = {},
@@ -930,7 +930,7 @@ require('lazy').setup({
 
   { -- Copilot chat on neovim ^_^
     'CopilotC-Nvim/CopilotChat.nvim',
-    branch = 'canary',
+    branch = 'main',
     dependencies = {
       { 'zbirenbaum/copilot.lua' },
       { 'nvim-lua/plenary.nvim' },
@@ -973,54 +973,47 @@ require('lazy').setup({
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   -- { import = 'custom.plugins' },
-  --
+
+  { -- cant install another custom local plugin tho, which is weird
+    name = 'simpleterm',
+    dir = vim.fn.stdpath 'config' .. '/lua/custom/plugins',
+    lazy = false,
+    config = function()
+      local function toggle_terminal()
+        local term_bufnr = vim.fn.bufnr 'term://'
+        if term_bufnr ~= -1 then
+          local term_winnr = vim.fn.bufwinnr(term_bufnr)
+          if term_winnr ~= -1 then
+            vim.cmd(term_winnr .. 'close')
+          else
+            vim.cmd 'split'
+            vim.cmd 'wincmd j'
+            vim.cmd('buffer ' .. term_bufnr)
+            vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
+          end
+        else
+          vim.cmd 'split'
+          vim.cmd 'wincmd j'
+          vim.cmd 'terminal'
+          vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
+          vim.cmd 'startinsert'
+        end
+      end
+
+      vim.keymap.set('n', '<C-\\>', toggle_terminal)
+      vim.keymap.set('t', '<C-\\>', '<cmd>close<CR>')
+      vim.keymap.set('t', 'kj', '<C-\\><C-n>', { noremap = true })
+      vim.keymap.set('t', 'KJ', '<C-\\><C-n>', { noremap = true })
+      vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
+      vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
+    end,
+  },
+
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
   -- In normal mode type `<space>sh` then write `lazy.nvim-plugin`
   -- you can continue same window with `<space>sr` which resumes last telescope search
-}, {
-  ui = {
-    -- If you are using a Nerd Font: set icons to an empty table which will use the
-    -- default lazy.nvim defined Nerd Font icons, otherwise define a unicode icons table
-    icons = vim.g.have_nerd_font and {} or {
-      cmd = '⌘',
-      config = '🛠',
-      event = '📅',
-      ft = '📂',
-      init = '⚙',
-      keys = '🗝',
-      plugin = '🔌',
-      runtime = '💻',
-      require = '🌙',
-      source = '📄',
-      start = '🚀',
-      task = '📌',
-      lazy = '💤 ',
-    },
-  },
-})
-
-local function toggle_terminal()
-  local term_bufnr = vim.fn.bufnr 'term://'
-
-  if term_bufnr ~= -1 then
-    local term_winnr = vim.fn.bufwinnr(term_bufnr)
-    if term_winnr ~= -1 then
-      vim.cmd(term_winnr .. 'close')
-    else
-      vim.cmd 'split'
-      vim.cmd 'wincmd j'
-      vim.cmd('buffer ' .. term_bufnr)
-      vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
-    end
-  else
-    vim.cmd 'split'
-    vim.cmd 'wincmd j'
-    vim.cmd 'terminal'
-    vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
-    vim.cmd 'startinsert'
-  end
-end
+}
 
 vim.opt.guicursor = 'i-ci-ve:hor30'
 vim.opt.relativenumber = true
@@ -1036,11 +1029,5 @@ vim.keymap.set('v', 'kj', '<Esc>', { noremap = true })
 vim.keymap.set('v', 'KJ', '<Esc>', { noremap = true })
 vim.keymap.set('v', 'Kj', '<Esc>', { noremap = true })
 vim.keymap.set('v', 'kJ', '<Esc>', { noremap = true })
-vim.keymap.set('t', 'kj', '<C-\\><C-n>', { noremap = true })
-vim.keymap.set('t', 'KJ', '<C-\\><C-n>', { noremap = true })
-vim.keymap.set('t', 'Kj', '<C-\\><C-n>', { noremap = true })
-vim.keymap.set('t', 'kJ', '<C-\\><C-n>', { noremap = true })
-vim.keymap.set('n', '<C-\\>', toggle_terminal, { desc = 'Toggle Terminal' })
 vim.keymap.set('n', '|', ':Neotree toggle<CR>', { desc = 'Toggle Neotree' })
 vim.keymap.set('n', '\\', ':CopilotChatToggle<CR>', { desc = 'Toggle Copilot Chat' })
-vim.keymap.set('t', '<C-\\>', '<cmd>close<CR>', { desc = 'Toggle Terminal' })
