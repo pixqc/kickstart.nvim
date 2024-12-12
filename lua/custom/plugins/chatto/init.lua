@@ -1,85 +1,150 @@
-local curl = require 'plenary.curl'
-local async = require 'plenary.async'
-local M = {}
+-- local curl = require 'plenary.curl'
+-- local async = require 'plenary.async'
+-- local M = {}
 
-local state = {
-  winid = nil,
-  bufnr = nil,
-}
+-- local state = {
+--   winid = nil,
+--   bufnr = nil,
+-- }
 
-local function random_chunk(limit)
-  local chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  local result = ''
-  for _ = 1, limit do
-    local random_index = math.random(1, #chars)
-    result = result .. string.sub(chars, random_index, random_index)
-  end
-  return result
-end
+-- local function random_chunk(limit)
+--   local chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+--   local result = ''
+--   for _ = 1, limit do
+--     local random_index = math.random(1, #chars)
+--     result = result .. string.sub(chars, random_index, random_index)
+--   end
+--   return result
+-- end
 
-local function append_buffer(text)
-  vim.schedule(function()
-    if state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
-      local line_num = vim.api.nvim_buf_line_count(state.bufnr) - 1
-      local line = vim.api.nvim_buf_get_lines(state.bufnr, line_num, line_num + 1, false)[1] or ''
-      vim.api.nvim_buf_set_lines(state.bufnr, line_num, line_num + 1, false, { line .. text })
-    end
-  end)
-end
+-- local function append_buffer(text)
+--   vim.schedule(function()
+--     if state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
+--       local line_num = vim.api.nvim_buf_line_count(state.bufnr) - 1
+--       local line = vim.api.nvim_buf_get_lines(state.bufnr, line_num, line_num + 1, false)[1] or ''
+--       vim.api.nvim_buf_set_lines(state.bufnr, line_num, line_num + 1, false, { line .. text })
+--     end
+--   end)
+-- end
 
-local function create_window()
-  if not state.bufnr or not vim.api.nvim_buf_is_valid(state.bufnr) then
-    state.bufnr = vim.api.nvim_create_buf(false, true)
+-- local function create_window()
+--   if not state.bufnr or not vim.api.nvim_buf_is_valid(state.bufnr) then
+--     state.bufnr = vim.api.nvim_create_buf(false, true)
 
-    vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<CR>', '', {
-      callback = function()
-        for _ = 1, 100 do
-          append_buffer(random_chunk(3))
-        end
-      end,
-      noremap = true,
-      silent = true,
-    })
-  end
-  vim.cmd 'botright vsplit'
-  state.winid = vim.api.nvim_get_current_win()
+--     vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<CR>', '', {
+--       callback = function()
+--         for _ = 1, 100 do
+--           append_buffer(random_chunk(3))
+--         end
+--       end,
+--       noremap = true,
+--       silent = true,
+--     })
+--   end
+--   vim.cmd 'botright vsplit'
+--   state.winid = vim.api.nvim_get_current_win()
 
-  vim.api.nvim_win_set_buf(state.winid, state.bufnr)
-  vim.api.nvim_win_set_width(state.winid, math.floor(vim.o.columns * 0.35))
-  vim.api.nvim_set_option_value('number', true, { win = state.winid })
-  vim.api.nvim_set_option_value('relativenumber', true, { win = state.winid })
-  vim.api.nvim_set_option_value('winfixwidth', true, { win = state.winid })
-  vim.api.nvim_buf_set_name(state.bufnr, 'chatto')
-end
+--   vim.api.nvim_win_set_buf(state.winid, state.bufnr)
+--   vim.api.nvim_win_set_width(state.winid, math.floor(vim.o.columns * 0.35))
+--   vim.api.nvim_set_option_value('number', true, { win = state.winid })
+--   vim.api.nvim_set_option_value('relativenumber', true, { win = state.winid })
+--   vim.api.nvim_set_option_value('winfixwidth', true, { win = state.winid })
+--   vim.api.nvim_buf_set_name(state.bufnr, 'chatto')
+-- end
 
-M.setup = function()
-  vim.api.nvim_create_user_command('Chatto', function(opts)
-    if opts.args == 'open' then
-      if not (state.winid and vim.api.nvim_win_is_valid(state.winid)) then
-        create_window()
-      end
-    elseif opts.args == 'close' then
-      if state.winid and vim.api.nvim_win_is_valid(state.winid) then
-        vim.api.nvim_win_close(state.winid, true)
-        state.winid = nil
-      end
-    elseif opts.args == 'toggle' then
-      if state.winid and vim.api.nvim_win_is_valid(state.winid) then
-        vim.api.nvim_win_close(state.winid, true)
-        state.winid = nil
-      else
-        create_window()
-      end
-    end
-  end, {
-    nargs = 1,
-    complete = function(_, _, _)
-      return { 'open', 'close', 'toggle' }
-    end,
-  })
-end
+-- M.setup = function()
+--   vim.api.nvim_create_user_command('Chatto', function(opts)
+--     if opts.args == 'open' then
+--       if not (state.winid and vim.api.nvim_win_is_valid(state.winid)) then
+--         create_window()
+--       end
+--     elseif opts.args == 'close' then
+--       if state.winid and vim.api.nvim_win_is_valid(state.winid) then
+--         vim.api.nvim_win_close(state.winid, true)
+--         state.winid = nil
+--       end
+--     elseif opts.args == 'toggle' then
+--       if state.winid and vim.api.nvim_win_is_valid(state.winid) then
+--         vim.api.nvim_win_close(state.winid, true)
+--         state.winid = nil
+--       else
+--         create_window()
+--       end
+--     end
+--   end, {
+--     nargs = 1,
+--     complete = function(_, _, _)
+--       return { 'open', 'close', 'toggle' }
+--     end,
+--   })
+-- end
 
-return M
+-- return M
+-- const modelName = "models/gemini-2.0-flash-exp";
+-- const streamUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:streamGenerateContent?alt=sse&key=${API_KEY}`;
+
+-- const requestBody = {
+-- 	contents: [
+-- 		{
+-- 			parts: [
+-- 				{
+-- 					text: "Write a cute story about cats.",
+-- 				},
+-- 			],
+-- 		},
+-- 	],
+-- };
+
+-- // Function to handle streaming response
+-- async function streamResponse() {
+-- 	try {
+-- 		const response = await fetch(streamUrl, {
+-- 			method: "POST",
+-- 			headers: {
+-- 				"Content-Type": "application/json",
+-- 			},
+-- 			body: JSON.stringify(requestBody),
+-- 		});
+
+-- 		// Create a new ReadableStream from the response body
+-- 		const reader = response.body.getReader();
+-- 		const decoder = new TextDecoder();
+
+-- 		// Read the stream
+-- 		while (true) {
+-- 			const { done, value } = await reader.read();
+-- 			if (done) break;
+
+-- 			// Decode and process the chunk
+-- 			const chunk = decoder.decode(value);
+-- 			const lines = chunk.split("\n");
+
+-- 			// Process each line (event)
+-- 			lines.forEach((line) => {
+-- 				if (line.startsWith("data: ")) {
+-- 					const jsonString = line.slice(6); // Remove 'data: ' prefix
+-- 					if (jsonString === "[DONE]") return;
+
+-- 					try {
+-- 						const data = JSON.parse(jsonString);
+-- 						// Process the streaming response
+-- 						if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+-- 							const text = data.candidates[0].content.parts[0].text;
+-- 							console.log(text); // Or handle the text as needed
+-- 						}
+-- 					} catch (e) {
+-- 						console.error("Error parsing JSON:", e);
+-- 					}
+-- 				}
+-- 			});
+-- 		}
+-- 	} catch (error) {
+-- 		console.error("Stream error:", error);
+-- 	}
+-- }
+
+-- // Start streaming
+-- streamResponse();
 
 --
 -- local function append_to_chat(text)
@@ -369,3 +434,141 @@ return M
 --     end
 --   end
 -- end
+
+local curl = require 'plenary.curl'
+local M = {}
+
+local state = {
+  winid = nil,
+  bufnr = nil,
+}
+
+local function append_buffer(text)
+  vim.schedule(function()
+    local line_num = vim.api.nvim_buf_line_count(state.bufnr)
+    local lines = vim.split(text, '\n')
+    lines = vim.tbl_filter(function(line)
+      return line ~= ''
+    end, lines)
+    -- If buffer is empty, just set the lines
+    if line_num == 1 and vim.api.nvim_buf_get_lines(state.bufnr, 0, 1, false)[1] == '' then
+      vim.api.nvim_buf_set_lines(state.bufnr, 0, 1, false, lines)
+      return
+    end
+    -- Get the last line's content
+    local last_line = vim.api.nvim_buf_get_lines(state.bufnr, line_num - 1, line_num, false)[1]
+    -- Append the first line to the last line
+    if #lines > 0 then
+      vim.api.nvim_buf_set_lines(state.bufnr, line_num - 1, line_num, false, { last_line .. lines[1] })
+    end
+    -- Add any remaining lines as new lines
+    if #lines > 1 then
+      vim.api.nvim_buf_set_lines(state.bufnr, line_num, line_num, false, { unpack(lines, 2) })
+    end
+  end)
+end
+
+local function process_stream_data(data)
+  if not data then
+    return
+  end
+
+  for line in data:gmatch '[^\r\n]+' do
+    if line:match '^data: ' then
+      local json_str = line:sub(7)
+
+      local ok, decoded = pcall(vim.json.decode, json_str)
+      if ok and decoded and decoded.candidates then
+        for _, candidate in ipairs(decoded.candidates) do
+          if candidate.content and candidate.content.parts then
+            for _, part in ipairs(candidate.content.parts) do
+              if part.text then
+                append_buffer(part.text)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+local function stream_response()
+  local api_key = os.getenv 'GOOGLE_AISTUDIO_API_KEY'
+  if not api_key then
+    print 'Environment variable GOOGLE_AISTUDIO_API_KEY not set'
+    return
+  end
+
+  local modelName = 'models/gemini-2.0-flash-exp'
+  local streamUrl = 'https://generativelanguage.googleapis.com/v1beta/' .. modelName .. ':streamGenerateContent?alt=sse&key=' .. api_key
+
+  local requestBody = {
+    contents = {
+      {
+        parts = {
+          {
+            text = 'tell me a story about a cat',
+          },
+        },
+      },
+    },
+  }
+
+  curl.post {
+    url = streamUrl,
+    body = vim.fn.json_encode(requestBody),
+    headers = {
+      ['Content-Type'] = 'application/json',
+    },
+    stream = function(_, data)
+      process_stream_data(data)
+    end,
+  }
+end
+
+local function create_window()
+  if not state.bufnr or not vim.api.nvim_buf_is_valid(state.bufnr) then
+    state.bufnr = vim.api.nvim_create_buf(false, true)
+  end
+  vim.cmd 'botright vsplit'
+  state.winid = vim.api.nvim_get_current_win()
+
+  vim.api.nvim_win_set_buf(state.winid, state.bufnr)
+  vim.api.nvim_win_set_width(state.winid, math.floor(vim.o.columns * 0.35))
+  vim.api.nvim_set_option_value('number', true, { win = state.winid })
+  vim.api.nvim_set_option_value('relativenumber', true, { win = state.winid })
+  vim.api.nvim_set_option_value('winfixwidth', true, { win = state.winid })
+  vim.api.nvim_buf_set_name(state.bufnr, 'chatto')
+end
+
+M.setup = function()
+  vim.api.nvim_create_user_command('Chatto', function(opts)
+    if opts.args == 'open' then
+      if not (state.winid and vim.api.nvim_win_is_valid(state.winid)) then
+        create_window()
+        stream_response()
+      end
+    elseif opts.args == 'close' then
+      if state.winid and vim.api.nvim_win_is_valid(state.winid) then
+        vim.api.nvim_win_close(state.winid, true)
+        state.winid = nil
+      end
+    elseif opts.args == 'toggle' then
+      if state.winid and vim.api.nvim_win_is_valid(state.winid) then
+        vim.api.nvim_win_close(state.winid, true)
+        state.winid = nil
+      else
+        create_window()
+        stream_response()
+      end
+    end
+  end, {
+    nargs = 1,
+    complete = function()
+      return { 'open', 'close', 'toggle' }
+    end,
+  })
+end
+
+return M
