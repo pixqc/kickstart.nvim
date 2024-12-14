@@ -79,22 +79,37 @@ end
 
 ---@param cfg ModelConfig
 ---@param body RequestBody
----@param handleStream function
+---@param handle_stream function
 ---@return nil
-local function fetch(cfg, body, handleStream)
+local function fetch(cfg, body, handle_stream)
   curl.post(cfg.url, {
     headers = {
       ['Content-Type'] = 'application/json',
       ['Authorization'] = 'Bearer ' .. cfg.api_key,
     },
     body = vim.json.encode(body),
-    stream = handleStream,
-
-    on_error = function(err)
-      print('Error occurred:', err.message)
-      vim.notify('API request failed: ' .. err.message, vim.log.levels.ERROR)
-    end,
+    stream = handle_stream,
   })
+end
+
+---@param data string
+--  example data: data: {"object":"chat.completion.chunk","created":1734165018,"model":"models/gemini-2.0-flash-exp","choices":[{"index":0,"delta":{"content":" am a large language model, trained by Google.\n","role":"assistant","tool_calls":[]},"finish_reason":"stop"}]}
+---@return string
+local function parse_stream(data)
+  for line in data:gmatch '[^\r\n]+' do
+    if line:match '^data: ' then
+      local json_str = line:sub(7)
+      local ok, decoded = pcall(vim.json.decode, json_str)
+      if ok and decoded and decoded.choices then
+        for _, choice in ipairs(decoded.choices) do
+          if choice.delta and choice.delta.content then
+            return choice.delta.content
+          end
+        end
+      end
+    end
+  end
+  return ''
 end
 
 M.setup = function()
@@ -111,24 +126,24 @@ M.setup = function()
   end, all_configs)
   local selected = cfgs[3]
 
-  local messages = { { role = 'user', content = 'hi, who r u' } }
+  local messages = { { role = 'user', content = 'tell me a bedtime story' } }
   local request_body = mk_request_body(selected, messages)
   print(vim.inspect(selected))
   print(vim.inspect(request_body))
 
-  -- handle the errors too!
-  local handleStream = function(_, data)
+  local handle_stream = function(_, data)
+    local chunk = parse_stream(data)
     local log_file = io.open('/tmp/abcd.log', 'a')
     if not log_file then
       error 'Could not open log file'
     end
-    print(data)
     if log_file then
-      log_file:write(os.date '%Y-%m-%d %H:%M:%S' .. ': ' .. data .. '\n')
+      log_file:write(os.date '%Y-%m-%d %H:%M:%S' .. ': ' .. chunk .. '\n')
       log_file:flush()
     end
   end
 
-  fetch(selected, request_body, handleStream)
+  fetch(selected, request_body, handle_stream)
 end
+
 return M
