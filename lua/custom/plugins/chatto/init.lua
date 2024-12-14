@@ -10,8 +10,8 @@ local state = {
 ---@alias MessageRole "user" | "assistant" | "system"
 
 ---@class Message
----@field messageRole MessageRole
----@field messageContent string
+---@field role MessageRole
+---@field content string
 
 ---@class Messages
 ---@field messages Message[] @ must NonEmpty
@@ -73,27 +73,28 @@ local function mk_request_body(cfg, msgs)
   return {
     model = cfg.name,
     messages = msgs,
-    stream = false,
+    stream = true,
   }
 end
 
 ---@param cfg ModelConfig
 ---@param body RequestBody
----@return table
-local function fetch(cfg, body)
-  local response = curl.post(cfg.url, {
+---@param handleStream function
+---@return nil
+local function fetch(cfg, body, handleStream)
+  curl.post(cfg.url, {
     headers = {
       ['Content-Type'] = 'application/json',
       ['Authorization'] = 'Bearer ' .. cfg.api_key,
     },
     body = vim.json.encode(body),
+    stream = handleStream,
+
+    on_error = function(err)
+      print('Error occurred:', err.message)
+      vim.notify('API request failed: ' .. err.message, vim.log.levels.ERROR)
+    end,
   })
-
-  if response.status ~= 200 then
-    error(string.format('Request failed with status %d: %s', response.status, response.body))
-  end
-
-  return vim.json.decode(response.body)
 end
 
 M.setup = function()
@@ -105,17 +106,29 @@ M.setup = function()
     :flatten()
     :totable()
 
-  local valid_configs = vim.tbl_filter(function(cfg)
+  local cfgs = vim.tbl_filter(function(cfg)
     return cfg.api_key ~= nil
   end, all_configs)
+  local selected = cfgs[3]
 
-  print(vim.inspect(valid_configs))
-
-  local messages = { { messageRole = 'user', messageContent = 'hi, who r u' } }
-  local request_body = mk_request_body(valid_configs[1], messages)
+  local messages = { { role = 'user', content = 'hi, who r u' } }
+  local request_body = mk_request_body(selected, messages)
+  print(vim.inspect(selected))
   print(vim.inspect(request_body))
 
-  local response = fetch(valid_configs[1], request_body)
-  print(vim.inspect(response))
+  -- handle the errors too!
+  local handleStream = function(_, data)
+    local log_file = io.open('/tmp/abcd.log', 'a')
+    if not log_file then
+      error 'Could not open log file'
+    end
+    print(data)
+    if log_file then
+      log_file:write(os.date '%Y-%m-%d %H:%M:%S' .. ': ' .. data .. '\n')
+      log_file:flush()
+    end
+  end
+
+  fetch(selected, request_body, handleStream)
 end
 return M
