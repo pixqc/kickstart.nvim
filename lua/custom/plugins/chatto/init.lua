@@ -24,15 +24,14 @@ local M = {}
 ---@field messages Chatto.Messages
 ---@field stream boolean
 
----@param state Chatto.State
----@param message string
+---@param f file*
+---@param thing string
 ---@return nil
-local function log(state, message)
-  if state.debug_file then
-    local timestamp = os.date '%Y-%m-%d %H:%M:%S'
-    state.debug_file:write(string.format('[%s] %s\n', timestamp, message))
-    state.debug_file:flush()
-  end
+local function log(f, thing)
+  print(thing)
+  local timestamp = os.date '%Y-%m-%d %H:%M:%S'
+  f:write(string.format('[%s] %s\n', timestamp, thing))
+  f:flush()
 end
 
 ---@param bufnr integer
@@ -53,8 +52,9 @@ local function create_window(bufnr)
   return winid
 end
 
+---@param model_name string
 ---@return integer
-local function ensure_buffer()
+local function ensure_buffer(model_name)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     local name = vim.api.nvim_buf_get_name(buf)
     if name:match 'chatto$' then
@@ -67,6 +67,8 @@ local function ensure_buffer()
   local unique_name = string.format('%s/chatto', vim.fn.getcwd())
   vim.api.nvim_set_option_value('modifiable', true, { buf = new_bufnr })
   pcall(vim.api.nvim_buf_set_name, new_bufnr, unique_name)
+  local initial_content = string.format('model: %s\n\n<user>\n', model_name)
+  vim.api.nvim_buf_set_lines(new_bufnr, 0, -1, false, vim.split(initial_content, '\n'))
   return new_bufnr -- create new buffer, return bufnr
 end
 
@@ -102,14 +104,14 @@ end
 ---@return Chatto.State
 local function mk_state(cfgs, cfg_idx)
   local f, err = io.open('chatto.log', 'a')
-  if err then
+  if not f then
     vim.notify('Failed to open chatto.log: ' .. err, vim.log.levels.WARN)
     f = nil
   end
 
   return {
     winid = nil,
-    bufnr = ensure_buffer(),
+    bufnr = ensure_buffer(cfgs[cfg_idx].name),
     model_configs = cfgs,
     model_config_idx = cfg_idx,
     debug_file = f,
@@ -167,18 +169,50 @@ local function parse_stream(data)
   return ''
 end
 
----@param bufnr integer
+---@param bufnr integer @ guaranteed nonempty
 ---@return Chatto.Messages
 local function parse_buffer(bufnr)
-  -- TODO: check if empty
-  -- if not state.bufnr then
-  --   return nil
-  -- end
+  local function trim(s)
+    return s:match '^%s*(.-)%s*$'
+  end
+
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local content = table.concat(lines, '\n')
-  return {
-    { role = 'user', content = content },
-  }
+  local messages = {}
+  local current_role = nil
+  local current_content = {}
+
+  for _, line in ipairs(lines) do
+    if line:match '^<user>%s*$' then
+      if current_role and #current_content > 0 then
+        table.insert(messages, {
+          role = current_role,
+          content = trim(table.concat(current_content, '\n')),
+        })
+      end
+      current_role = 'user'
+      current_content = {}
+    elseif line:match '^<assistant>%s*$' then
+      if current_role and #current_content > 0 then
+        table.insert(messages, {
+          role = current_role,
+          content = trim(table.concat(current_content, '\n')),
+        })
+      end
+      current_role = 'assistant'
+      current_content = {}
+    elseif current_role then
+      table.insert(current_content, line)
+    end
+  end
+
+  if current_role and #current_content > 0 then
+    table.insert(messages, {
+      role = current_role,
+      content = trim(table.concat(current_content, '\n')),
+    })
+  end
+
+  return messages
 end
 
 ---@param state Chatto.State
@@ -187,21 +221,8 @@ end
 local function append_buffer(state, chunk)
   vim.schedule_wrap(function()
     local last_line = vim.api.nvim_buf_get_lines(state.bufnr, -2, -1, false)[1] or ''
-
-    if chunk:find '\n' then
-      local lines = {}
-      for line in chunk:gmatch '[^\n]+' do
-        table.insert(lines, line)
-      end
-      if #lines > 0 then
-        vim.api.nvim_buf_set_lines(state.bufnr, -2, -1, false, { last_line .. lines[1] })
-        if #lines > 1 then
-          vim.api.nvim_buf_set_lines(state.bufnr, -1, -1, false, { unpack(lines, 2) })
-        end
-      end
-    else
-      vim.api.nvim_buf_set_lines(state.bufnr, -2, -1, false, { last_line .. chunk })
-    end
+    local lines = vim.split(last_line .. chunk, '\n', { plain = true })
+    vim.api.nvim_buf_set_lines(state.bufnr, -2, -1, false, lines)
   end)()
 end
 
@@ -211,14 +232,19 @@ end
 local function chat(state, messages)
   local current_config = state.model_configs[state.model_config_idx]
   local request_body = mk_request_body(current_config, messages)
+  append_buffer(state, '\n\n<assistant>\n\n')
   local handle_stream = function(_, data)
     local chunk = parse_stream(data)
     if chunk ~= '' and state.bufnr then
       append_buffer(state, chunk)
     end
+
+    if data:match 'data: %[DONE%]' then
+      vim.schedule(function()
+        append_buffer(state, '\n<user>\n')
+      end)
+    end
   end
-  log(state, vim.inspect(current_config))
-  log(state, vim.inspect(request_body))
   fetch(current_config, request_body, handle_stream)
 end
 
@@ -258,7 +284,7 @@ M.setup = function()
     return cfg.api_key ~= nil
   end, cfgs_)
 
-  local state = mk_state(cfgs, 1)
+  local state = mk_state(cfgs, 3)
 
   -- // window related setups --
 
