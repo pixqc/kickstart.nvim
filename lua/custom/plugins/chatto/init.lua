@@ -1,10 +1,12 @@
 local curl = require 'plenary.curl'
 local M = {}
 
-local state = {
-  winid = nil,
-  bufnr = nil,
-}
+---@class State
+---@field winid integer|nil @ nvim window ID
+---@field bufnr integer|nil @ nvim buffer number
+---@field model_configs ModelConfig[]|nil
+---@field current_model integer|nil
+---@field debug_file file*|nil
 
 ---@alias Endpoint "aistudio" | "openrouter"
 ---@alias MessageRole "user" | "assistant" | "system"
@@ -26,6 +28,15 @@ local state = {
 ---@field messages Messages
 ---@field stream boolean
 
+---@class State
+local state = {
+  winid = nil,
+  bufnr = nil,
+  model_configs = nil,
+  current_model = nil,
+  debug_file = nil,
+}
+
 local models = {
   aistudio = {
     {
@@ -36,7 +47,7 @@ local models = {
   openrouter = {
     {
       url = 'https://openrouter.ai/api/v1/chat/completions',
-      name = 'meta-llama/llama-3.3-70b-instruct',
+      name = 'meta-llama/llama-3.2-1b-instruct',
     },
     {
       url = 'https://openrouter.ai/api/v1/chat/completions',
@@ -49,6 +60,14 @@ local key_names = {
   aistudio = 'GOOGLE_AISTUDIO_API_KEY',
   openrouter = 'OPENROUTER_API_KEY',
 }
+
+local function log(message)
+  if state.debug_file then
+    local timestamp = os.date '%Y-%m-%d %H:%M:%S'
+    state.debug_file:write(string.format('[%s] %s\n', timestamp, message))
+    state.debug_file:flush() -- Ensure it's written immediately
+  end
+end
 
 ---@param models_ table<string, {url: string, name: string}[]>
 ---@param endpoint_ Endpoint
@@ -132,7 +151,8 @@ local function ensure_buffer()
   if state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
     local buf_name = vim.api.nvim_buf_get_name(state.bufnr)
     if buf_name:match 'chatto$' then
-      return
+      vim.api.nvim_set_option_value('modifiable', true, { buf = state.bufnr })
+      return -- buffer exists, do nothing
     end
   end
 
@@ -146,12 +166,18 @@ local function ensure_buffer()
   end
 
   if bufnr then
+    -- existing buffer exist, assign to state.bufnr
     state.bufnr = bufnr
-  else
-    state.bufnr = vim.api.nvim_create_buf(false, true)
-    local unique_name = string.format('%s/chatto', vim.fn.getcwd())
-    pcall(vim.api.nvim_buf_set_name, state.bufnr, unique_name)
+    vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
+    return
   end
+
+  -- else, create new buffer
+  local new_bufnr = vim.api.nvim_create_buf(false, true)
+  state.bufnr = new_bufnr
+  local unique_name = string.format('%s/chatto', vim.fn.getcwd())
+  vim.api.nvim_set_option_value('modifiable', true, { buf = new_bufnr })
+  pcall(vim.api.nvim_buf_set_name, new_bufnr, unique_name)
 end
 
 local function create_window()
@@ -168,8 +194,16 @@ local function create_window()
   vim.api.nvim_buf_set_name(state.bufnr, 'chatto')
 end
 
--- take current buffer input and turn to Messages
-local function parse_buffer() end
+local function parse_buffer()
+  if not state.bufnr then
+    return nil
+  end
+  local lines = vim.api.nvim_buf_get_lines(state.bufnr, 0, -1, false)
+  local content = table.concat(lines, '\n')
+  return {
+    { role = 'user', content = content },
+  }
+end
 
 local function append_buffer(chunk)
   vim.schedule_wrap(function()
@@ -192,6 +226,21 @@ local function append_buffer(chunk)
   end)()
 end
 
+-- TODO: can partially apply the configs+key sans messages
+local function chat(messages)
+  local current_config = state.model_configs[state.current_model]
+  local request_body = mk_request_body(current_config, messages)
+  local handle_stream = function(_, data)
+    local chunk = parse_stream(data)
+    if chunk ~= '' and state.bufnr then
+      append_buffer(chunk)
+    end
+  end
+  log(vim.inspect(current_config))
+  log(vim.inspect(request_body))
+  fetch(current_config, request_body, handle_stream)
+end
+
 M.setup = function()
   ensure_buffer()
   local cfgs_ = vim
@@ -205,14 +254,38 @@ M.setup = function()
   local cfgs = vim.tbl_filter(function(cfg)
     return cfg.api_key ~= nil
   end, cfgs_)
-  local messages = { { role = 'user', content = 'tell me a bedtime story' } }
-  local selected = cfgs[3]
+  -- TODO: check if cfgs is nil
+  state.model_configs = cfgs
+  state.current_model = 1
+
+  local debug_path = '/tmp/chatto.log'
+  local file, err = io.open(debug_path, 'a')
+  if file then
+    state.debug_file = file
+  end
+  log 'setup complete'
+
+  -- // keymap related setups --
+
+  if state.bufnr then
+    vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<CR>', '', {
+      callback = function()
+        local messages = parse_buffer()
+        if messages then
+          chat(messages)
+        end
+      end,
+      noremap = true,
+      silent = true,
+    })
+  end
+
+  local messages = { { role = 'user', content = 'hello who r u' } }
+  local selected = state.model_configs[state.current_model]
   local request_body = mk_request_body(selected, messages)
 
-  print(state.bufnr)
   local handle_stream = function(_, data)
     local chunk = parse_stream(data)
-
     if chunk ~= '' and state.bufnr then
       append_buffer(chunk)
     end
@@ -247,4 +320,12 @@ M.setup = function()
     end,
   })
 end
+
+M.cleanup = function()
+  if state.debug_file then
+    state.debug_file:close()
+    state.debug_file = nil
+  end
+end
+
 return M
