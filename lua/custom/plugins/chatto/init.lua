@@ -1,4 +1,4 @@
-local curl = require 'plenary.curl'
+local Job = require 'plenary.job'
 local M = {}
 
 ---@class Chatto.State
@@ -123,15 +123,27 @@ end
 ---@param error_handler function
 ---@return nil
 local function fetch(cfg, body, stream_handler, error_handler)
-  curl.post(cfg.url, {
-    headers = {
-      ['Content-Type'] = 'application/json',
-      ['Authorization'] = 'Bearer ' .. cfg.api_key,
+  ---@diagnostic disable: missing-fields
+  Job:new({
+    command = 'curl',
+    args = {
+      '-s',
+      cfg.url,
+      '-H',
+      'Content-Type: application/json',
+      '-H',
+      'Authorization: Bearer ' .. cfg.api_key,
+      '--no-buffer',
+      '-d',
+      vim.json.encode(body),
     },
-    body = vim.json.encode(body),
-    stream = stream_handler,
-    on_error = error_handler,
-  })
+    on_stdout = function(_, data)
+      stream_handler(nil, data)
+    end,
+    on_stderr = function(_, data)
+      error_handler(data)
+    end,
+  }):start()
 end
 
 ---@param data string
@@ -227,11 +239,30 @@ local function chat(state, messages)
     end
   end
 
-  -- doens't work btw
   local error_handler = function(err)
     append_buffer(state.bufnr, err)
   end
   fetch(cfg, request_body, stream_handler, error_handler)
+end
+
+local function clear_buffer(state)
+  local bufnr = state.bufnr
+  if not bufnr then
+    return
+  end
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local new_lines = {}
+
+  if #lines > 0 then
+    table.insert(new_lines, lines[1])
+  end
+  if #lines > 1 then
+    table.insert(new_lines, lines[2])
+  end
+  if #lines > 2 then
+    table.insert(new_lines, lines[3])
+  end
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
 end
 
 M.setup = function()
@@ -333,6 +364,14 @@ M.setup = function()
         if messages then
           chat(state, messages)
         end
+      end,
+      noremap = true,
+      silent = true,
+    })
+
+    vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<C-n>', '', {
+      callback = function()
+        clear_buffer(state)
       end,
       noremap = true,
       silent = true,
