@@ -8,7 +8,7 @@ local M = {}
 ---@field model_config_idx integer|nil
 ---@field debug_file file*|nil
 
----@alias Chatto.Endpoint "aistudio" | "openrouter"
+---@alias Chatto.Endpoint "aistudio" | "openrouter" | "groq"
 ---@alias Chatto.Role "user" | "assistant" | "system"
 
 ---@class Chatto.Messages
@@ -119,16 +119,18 @@ end
 
 ---@param cfg Chatto.ModelConfig
 ---@param body Chatto.RequestBody
----@param handle_stream function
+---@param stream_handler function
+---@param error_handler function
 ---@return nil
-local function fetch(cfg, body, handle_stream)
+local function fetch(cfg, body, stream_handler, error_handler)
   curl.post(cfg.url, {
     headers = {
       ['Content-Type'] = 'application/json',
       ['Authorization'] = 'Bearer ' .. cfg.api_key,
     },
     body = vim.json.encode(body),
-    stream = handle_stream,
+    stream = stream_handler,
+    on_error = error_handler,
   })
 end
 
@@ -154,10 +156,6 @@ end
 ---@param bufnr integer @ guaranteed nonempty
 ---@return Chatto.Messages
 local function parse_buffer(bufnr)
-  local function trim(s)
-    return s:match '^%s*(.-)%s*$'
-  end
-
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local messages = {}
   local current_role = nil
@@ -168,7 +166,7 @@ local function parse_buffer(bufnr)
       if current_role and #current_content > 0 then
         table.insert(messages, {
           role = current_role,
-          content = trim(table.concat(current_content, '\n')),
+          content = vim.trim(table.concat(current_content, '\n')),
         })
       end
       current_role = 'user'
@@ -177,7 +175,7 @@ local function parse_buffer(bufnr)
       if current_role and #current_content > 0 then
         table.insert(messages, {
           role = current_role,
-          content = trim(table.concat(current_content, '\n')),
+          content = vim.trim(table.concat(current_content, '\n')),
         })
       end
       current_role = 'assistant'
@@ -190,7 +188,7 @@ local function parse_buffer(bufnr)
   if current_role and #current_content > 0 then
     table.insert(messages, {
       role = current_role,
-      content = trim(table.concat(current_content, '\n')),
+      content = vim.trim(table.concat(current_content, '\n')),
     })
   end
 
@@ -215,7 +213,8 @@ local function chat(state, messages)
   local cfg = state.model_configs[state.model_config_idx]
   local request_body = mk_request_body(cfg, messages)
   append_buffer(state.bufnr, '\n\n<assistant>\n\n')
-  local handle_stream = function(_, data)
+  local stream_handler = function(_, data)
+    log(state.debug_file, data)
     local chunk = parse_stream(data)
     if chunk ~= '' and state.bufnr then
       append_buffer(state.bufnr, chunk)
@@ -227,7 +226,12 @@ local function chat(state, messages)
       end)
     end
   end
-  fetch(cfg, request_body, handle_stream)
+
+  -- doens't work btw
+  local error_handler = function(err)
+    append_buffer(state.bufnr, err)
+  end
+  fetch(cfg, request_body, stream_handler, error_handler)
 end
 
 M.setup = function()
@@ -241,24 +245,31 @@ M.setup = function()
     openrouter = {
       {
         url = 'https://openrouter.ai/api/v1/chat/completions',
-        name = 'meta-llama/llama-3.2-1b-instruct',
+        name = 'meta-llama/llama-3.3-70b-instruct',
       },
       {
         url = 'https://openrouter.ai/api/v1/chat/completions',
         name = 'anthropic/claude-3.5-sonnet:beta',
       },
     },
+    groq = {
+      {
+        url = 'https://api.groq.com/openai/v1/chat/completions',
+        name = 'llama-3.1-8b-instant',
+      },
+    },
   }
-
   local key_names = {
     aistudio = 'GOOGLE_AISTUDIO_API_KEY',
     openrouter = 'OPENROUTER_API_KEY',
+    groq = 'GROQ_API_KEY',
   }
 
   local cfgs_ = vim
     .iter({
       mk_model_configs(models, 'openrouter', key_names['openrouter']),
       mk_model_configs(models, 'aistudio', key_names['aistudio']),
+      mk_model_configs(models, 'groq', key_names['groq']),
     })
     :flatten()
     :totable()
@@ -287,15 +298,33 @@ M.setup = function()
       else
         state.winid = create_window(state.bufnr)
       end
+    elseif opts.args == 'switch' then
+      local model_names = vim.tbl_map(function(cfg)
+        return cfg.name
+      end, state.model_configs)
+
+      vim.ui.select(model_names, {
+        prompt = 'Select model:',
+        format_item = function(item)
+          return item
+        end,
+      }, function(choice, idx)
+        if choice then
+          state.model_config_idx = idx
+          if state.bufnr then
+            local lines = vim.api.nvim_buf_get_lines(state.bufnr, 0, 1, false)
+            lines[1] = string.format('model: %s', choice)
+            vim.api.nvim_buf_set_lines(state.bufnr, 0, 1, false, lines)
+          end
+        end
+      end)
     end
   end, {
     nargs = 1,
     complete = function()
-      return { 'open', 'close', 'toggle' }
+      return { 'open', 'close', 'toggle', 'switch' }
     end,
   })
-
-  -- // keymaps --
 
   if state.bufnr then
     vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<CR>', '', {
