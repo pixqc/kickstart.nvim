@@ -28,7 +28,6 @@ local M = {}
 ---@param thing string
 ---@return nil
 local function log(f, thing)
-  print(thing)
   local timestamp = os.date '%Y-%m-%d %H:%M:%S'
   f:write(string.format('[%s] %s\n', timestamp, thing))
   f:flush()
@@ -63,13 +62,13 @@ local function ensure_buffer(model_name)
     end
   end
 
-  local new_bufnr = vim.api.nvim_create_buf(false, true)
-  local unique_name = string.format('%s/chatto', vim.fn.getcwd())
-  vim.api.nvim_set_option_value('modifiable', true, { buf = new_bufnr })
-  pcall(vim.api.nvim_buf_set_name, new_bufnr, unique_name)
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
+  local name = string.format('%s/chatto', vim.fn.getcwd())
+  vim.api.nvim_buf_set_name(bufnr, name)
   local initial_content = string.format('model: %s\n\n<user>\n', model_name)
-  vim.api.nvim_buf_set_lines(new_bufnr, 0, -1, false, vim.split(initial_content, '\n'))
-  return new_bufnr -- create new buffer, return bufnr
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(initial_content, '\n'))
+  return bufnr -- create new buffer, return bufnr
 end
 
 ---@param models_ table<string, {url: string, name: string}[]>
@@ -78,7 +77,7 @@ end
 ---@return Chatto.ModelConfig[]
 local function mk_model_configs(models_, endpoint_, key_name)
   local configs = {}
-  for _, model in ipairs(models_[endpoint_]) do
+  for _, model in pairs(models_[endpoint_]) do
     table.insert(configs, {
       url = model.url,
       name = model.name,
@@ -103,7 +102,7 @@ end
 ---@param cfg_idx integer
 ---@return Chatto.State
 local function mk_state(cfgs, cfg_idx)
-  local f, err = io.open('chatto.log', 'a')
+  local f, err = io.open('/tmp/chatto.log', 'a')
   if not f then
     vim.notify('Failed to open chatto.log: ' .. err, vim.log.levels.WARN)
     f = nil
@@ -133,23 +132,6 @@ local function fetch(cfg, body, handle_stream)
   })
 end
 
---- Example data format:
----{
----  "object": "chat.completion.chunk",
----  "created": 1734165018,
----  "model": "models/gemini-2.0-flash-exp",
----  "choices": [
----    {
----      "index": 0,
----      "delta": {
----        "content": " am a large language model, trained by Google.\n",
----        "role": "assistant",
----        "tool_calls": []
----      },
----      "finish_reason": "stop"
----    }
----  ]
----}
 ---@param data string
 ---@return string
 local function parse_stream(data)
@@ -215,37 +197,37 @@ local function parse_buffer(bufnr)
   return messages
 end
 
----@param state Chatto.State
+---@param bufnr integer
 ---@param chunk string
 ---@return nil
-local function append_buffer(state, chunk)
-  vim.schedule_wrap(function()
-    local last_line = vim.api.nvim_buf_get_lines(state.bufnr, -2, -1, false)[1] or ''
+local function append_buffer(bufnr, chunk)
+  vim.schedule(function()
+    local last_line = vim.api.nvim_buf_get_lines(bufnr, -2, -1, false)[1] or ''
     local lines = vim.split(last_line .. chunk, '\n', { plain = true })
-    vim.api.nvim_buf_set_lines(state.bufnr, -2, -1, false, lines)
-  end)()
+    vim.api.nvim_buf_set_lines(bufnr, -2, -1, false, lines)
+  end)
 end
 
 ---@param state Chatto.State
 ---@param messages Chatto.Messages
 ---@return nil
 local function chat(state, messages)
-  local current_config = state.model_configs[state.model_config_idx]
-  local request_body = mk_request_body(current_config, messages)
-  append_buffer(state, '\n\n<assistant>\n\n')
+  local cfg = state.model_configs[state.model_config_idx]
+  local request_body = mk_request_body(cfg, messages)
+  append_buffer(state.bufnr, '\n\n<assistant>\n\n')
   local handle_stream = function(_, data)
     local chunk = parse_stream(data)
     if chunk ~= '' and state.bufnr then
-      append_buffer(state, chunk)
+      append_buffer(state.bufnr, chunk)
     end
 
     if data:match 'data: %[DONE%]' then
       vim.schedule(function()
-        append_buffer(state, '\n<user>\n')
+        append_buffer(state.bufnr, '\n<user>\n')
       end)
     end
   end
-  fetch(current_config, request_body, handle_stream)
+  fetch(cfg, request_body, handle_stream)
 end
 
 M.setup = function()
@@ -253,7 +235,7 @@ M.setup = function()
     aistudio = {
       {
         url = 'https://generativelanguage.googleapis.com/v1beta/chat/completions',
-        name = 'models/gemini-2.0-flash-exp',
+        name = 'gemini-2.0-flash-exp',
       },
     },
     openrouter = {
@@ -328,12 +310,5 @@ M.setup = function()
     })
   end
 end
-
--- M.cleanup = function()j
---   if state.debug_file then
---     state.debug_file:close()
---     state.debug_file = nil
---   end
--- end
 
 return M
