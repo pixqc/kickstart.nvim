@@ -48,6 +48,14 @@ local function create_window(bufnr)
   vim.api.nvim_set_option_value('linebreak', true, { win = winid })
   vim.api.nvim_buf_set_name(bufnr, 'chatto')
 
+  vim.api.nvim_set_option_value('syntax', 'markdown', { buf = bufnr })
+  vim.lsp.stop_client(vim.lsp.get_clients { bufnr = bufnr })
+
+  -- set cursor to "text box", insert mode
+  local line = vim.api.nvim_buf_line_count(bufnr)
+  vim.api.nvim_win_set_cursor(0, { line, 0 })
+  vim.api.nvim_command 'startinsert'
+
   return winid
 end
 
@@ -55,8 +63,7 @@ end
 ---@return integer
 local function ensure_buffer(model_name)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    local name = vim.api.nvim_buf_get_name(buf)
-    if name:match 'chatto$' then
+    if vim.api.nvim_buf_get_name(buf):match 'chatto$' then
       vim.api.nvim_set_option_value('modifiable', true, { buf = buf })
       return buf -- existing buffer
     end
@@ -66,7 +73,7 @@ local function ensure_buffer(model_name)
   vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
   local name = string.format('%s/chatto', vim.fn.getcwd())
   vim.api.nvim_buf_set_name(bufnr, name)
-  local initial_content = string.format('model: %s\n\n<user>\n', model_name)
+  local initial_content = string.format('model: %s\n\n<user>\n\n', model_name)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(initial_content, '\n'))
   return bufnr -- create new buffer, return bufnr
 end
@@ -76,15 +83,13 @@ end
 ---@param key_name string
 ---@return Chatto.ModelConfig[]
 local function mk_model_configs(models_, endpoint_, key_name)
-  local configs = {}
-  for _, model in pairs(models_[endpoint_]) do
-    table.insert(configs, {
+  return vim.tbl_map(function(model)
+    return {
       url = model.url,
       name = model.name,
       api_key = os.getenv(key_name),
-    })
-  end
-  return configs
+    }
+  end, models_[endpoint_] or {})
 end
 
 ---@param cfg Chatto.ModelConfig
@@ -173,37 +178,26 @@ local function parse_buffer(bufnr)
   local current_role = nil
   local current_content = {}
 
+  local function finalize_message()
+    if current_role then
+      local message = { role = current_role, content = vim.trim(table.concat(current_content, '\n')) }
+      table.insert(messages, message)
+      current_content = {}
+    end
+  end
+
   for _, line in ipairs(lines) do
     if line:match '^<user>%s*$' then
-      if current_role and #current_content > 0 then
-        table.insert(messages, {
-          role = current_role,
-          content = vim.trim(table.concat(current_content, '\n')),
-        })
-      end
+      finalize_message()
       current_role = 'user'
-      current_content = {}
     elseif line:match '^<assistant>%s*$' then
-      if current_role and #current_content > 0 then
-        table.insert(messages, {
-          role = current_role,
-          content = vim.trim(table.concat(current_content, '\n')),
-        })
-      end
+      finalize_message()
       current_role = 'assistant'
-      current_content = {}
     elseif current_role then
       table.insert(current_content, line)
     end
   end
-
-  if current_role and #current_content > 0 then
-    table.insert(messages, {
-      role = current_role,
-      content = vim.trim(table.concat(current_content, '\n')),
-    })
-  end
-
+  finalize_message()
   return messages
 end
 
@@ -265,53 +259,7 @@ local function clear_buffer(state)
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
 end
 
-M.setup = function()
-  local models = {
-    aistudio = {
-      {
-        url = 'https://generativelanguage.googleapis.com/v1beta/chat/completions',
-        name = 'gemini-2.0-flash-exp',
-      },
-    },
-    openrouter = {
-      {
-        url = 'https://openrouter.ai/api/v1/chat/completions',
-        name = 'meta-llama/llama-3.3-70b-instruct',
-      },
-      {
-        url = 'https://openrouter.ai/api/v1/chat/completions',
-        name = 'anthropic/claude-3.5-sonnet:beta',
-      },
-    },
-    groq = {
-      {
-        url = 'https://api.groq.com/openai/v1/chat/completions',
-        name = 'llama-3.1-8b-instant',
-      },
-    },
-  }
-  local key_names = {
-    aistudio = 'GOOGLE_AISTUDIO_API_KEY',
-    openrouter = 'OPENROUTER_API_KEY',
-    groq = 'GROQ_API_KEY',
-  }
-
-  local cfgs_ = vim
-    .iter({
-      mk_model_configs(models, 'openrouter', key_names['openrouter']),
-      mk_model_configs(models, 'aistudio', key_names['aistudio']),
-      mk_model_configs(models, 'groq', key_names['groq']),
-    })
-    :flatten()
-    :totable()
-  local cfgs = vim.tbl_filter(function(cfg)
-    return cfg.api_key ~= nil
-  end, cfgs_)
-
-  local state = mk_state(cfgs, 3)
-
-  -- // window related setups --
-
+local function set_keymaps(state)
   vim.api.nvim_create_user_command('Chatto', function(opts)
     if opts.args == 'open' then
       if not (state.winid and vim.api.nvim_win_is_valid(state.winid)) then
@@ -357,26 +305,83 @@ M.setup = function()
     end,
   })
 
-  if state.bufnr then
-    vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<CR>', '', {
-      callback = function()
-        local messages = parse_buffer(state.bufnr)
-        if messages then
-          chat(state, messages)
-        end
-      end,
-      noremap = true,
-      silent = true,
-    })
+  -- send chat
+  vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<CR>', '', {
+    callback = function()
+      local messages = parse_buffer(state.bufnr)
+      if messages then
+        chat(state, messages)
+      end
+    end,
+    noremap = true,
+    silent = true,
+  })
 
-    vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<C-n>', '', {
-      callback = function()
-        clear_buffer(state)
-      end,
-      noremap = true,
-      silent = true,
+  -- clear chat
+  vim.api.nvim_buf_set_keymap(state.bufnr, 'n', '<C-n>', '', {
+    callback = function()
+      clear_buffer(state)
+    end,
+    noremap = true,
+    silent = true,
+  })
+end
+
+M.setup = function()
+  local models = {
+    aistudio = {
+      {
+        url = 'https://generativelanguage.googleapis.com/v1beta/chat/completions',
+        name = 'gemini-2.0-flash-exp',
+      },
+    },
+    openrouter = {
+      {
+        url = 'https://openrouter.ai/api/v1/chat/completions',
+        name = 'meta-llama/llama-3.3-70b-instruct',
+      },
+      {
+        url = 'https://openrouter.ai/api/v1/chat/completions',
+        name = 'anthropic/claude-3.5-sonnet:beta',
+      },
+    },
+    groq = {
+      {
+        url = 'https://api.groq.com/openai/v1/chat/completions',
+        name = 'llama-3.1-8b-instant',
+      },
+    },
+  }
+  local key_names = {
+    aistudio = 'GOOGLE_AISTUDIO_API_KEY',
+    openrouter = 'OPENROUTER_API_KEY',
+    groq = 'GROQ_API_KEY',
+  }
+
+  local cfgs_ = vim
+    .iter({
+      mk_model_configs(models, 'openrouter', key_names['openrouter']),
+      mk_model_configs(models, 'aistudio', key_names['aistudio']),
+      mk_model_configs(models, 'groq', key_names['groq']),
     })
-  end
+    :flatten()
+    :totable()
+  local cfgs = vim.tbl_filter(function(cfg)
+    return cfg.api_key ~= nil
+  end, cfgs_)
+  local state = mk_state(cfgs, 3)
+  set_keymaps(state)
+
+  vim.api.nvim_create_autocmd('VimLeavePre', {
+    callback = function()
+      if state.debug_file then
+        state.debug_file:close()
+      end
+      if state.bufnr and vim.api.nvim_buf_is_valid(state.bufnr) then
+        vim.api.nvim_buf_delete(state.bufnr, { force = true })
+      end
+    end,
+  })
 end
 
 return M
