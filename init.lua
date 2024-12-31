@@ -215,6 +215,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
   end
 end ---@diagnostic disable-next-line: undefined-field
 vim.opt.rtp:prepend(lazypath)
+vim.opt.rtp:append '~/dev/mana.nvim'
 
 -- [[ Configure and install plugins ]]
 --
@@ -919,39 +920,6 @@ require('lazy').setup {
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
 
-  { -- Lighweight alternative to github/copilot.vim
-    'zbirenbaum/copilot.lua',
-    config = function()
-      require('copilot').setup {
-        suggestion = { enabled = false },
-      }
-    end,
-  },
-
-  { -- Copilot chat on neovim ^_^
-    'CopilotC-Nvim/CopilotChat.nvim',
-    branch = 'main',
-    dependencies = {
-      { 'zbirenbaum/copilot.lua' },
-      { 'nvim-lua/plenary.nvim' },
-    },
-    build = 'make tiktoken',
-    opts = {
-      system_prompt = '',
-      model = 'claude-3.5-sonnet',
-      chat_autocomplete = false,
-      mappings = {
-        reset = {
-          normal = '<C-n>',
-          insert = '<C-n>',
-        },
-      },
-      window = {
-        width = 0.35,
-      },
-    },
-  },
-
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
@@ -977,17 +945,57 @@ require('lazy').setup {
   {
     name = 'simpleterm',
     dir = vim.fn.stdpath 'config' .. '/lua/custom/plugins/simpleterm',
-    config = function()
-      require('custom.plugins.simpleterm').setup()
-    end,
+    main = 'custom.plugins.simpleterm',
+    opts = {},
   },
 
   {
-    name = 'neochat',
-    dir = vim.fn.stdpath 'config' .. '/lua/custom/plugins/neochat',
-    config = function()
-      require('custom.plugins.neochat').setup()
-    end,
+    name = 'mana.nvim',
+    dir = '~/dev/mana.nvim/',
+    main = 'mana',
+    opts = {
+      default_model = 'deepseekv3',
+      models = {
+        sonnet = {
+          endpoint = 'openrouter',
+          name = 'anthropic/claude-3.5-sonnet:beta',
+          system_prompt = '',
+          temperature = 0.7,
+          top_p = 0.9,
+        },
+        deepseekv3 = {
+          endpoint = 'openrouter',
+          name = 'deepseek/deepseek-chat',
+          system_prompt = '',
+          temperature = 0.7,
+          top_p = 0.9,
+        },
+        gemini_flash = {
+          endpoint = 'aistudio',
+          name = 'gemini-2.0-flash-exp',
+          system_prompt = 'be brief, get to the point',
+          temperature = 0.7,
+          top_p = 0.9,
+        },
+        gemini_flash_thinking = {
+          endpoint = 'aistudio',
+          name = 'gemini-2.0-flash-thinking-exp',
+          system_prompt = '',
+          temperature = 0.7,
+          top_p = 0.9,
+        },
+      },
+      endpoints = {
+        aistudio = {
+          url = 'https://generativelanguage.googleapis.com/v1beta/chat/completions',
+          env = 'GOOGLE_AISTUDIO_API_KEY',
+        },
+        openrouter = {
+          url = 'https://openrouter.ai/api/v1/chat/completions',
+          env = 'OPENROUTER_API_KEY',
+        },
+      },
+    },
   },
 
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
@@ -1001,7 +1009,7 @@ vim.opt.relativenumber = true
 vim.opt.tabstop = 2
 vim.opt.shiftwidth = 2
 vim.opt.expandtab = true
--- vim.opt.colorcolumn = '79'
+vim.opt.colorcolumn = '79'
 vim.keymap.set('i', 'kj', '<Esc>', { noremap = true })
 vim.keymap.set('i', 'KJ', '<Esc>', { noremap = true })
 vim.keymap.set('i', 'Kj', '<Esc>', { noremap = true })
@@ -1010,5 +1018,11 @@ vim.keymap.set('v', 'kj', '<Esc>', { noremap = true })
 vim.keymap.set('v', 'KJ', '<Esc>', { noremap = true })
 vim.keymap.set('v', 'Kj', '<Esc>', { noremap = true })
 vim.keymap.set('v', 'kJ', '<Esc>', { noremap = true })
-vim.keymap.set('n', '|', ':Neotree toggle<CR>', { desc = 'Toggle Neotree' })
-vim.keymap.set('n', '\\', ':CopilotChatToggle<CR>', { desc = 'Toggle Copilot Chat' })
+vim.keymap.set('n', '|', ':Neotree toggle<CR>')
+vim.keymap.set('n', '\\', ':Mana toggle<CR>')
+vim.keymap.set('n', '<leader>ms', ':Mana switch<CR>')
+vim.keymap.set('v', '<leader>mq', ':Mana paste<CR>')
+vim.keymap.set('n', '<leader>mm', function()
+  package.loaded['mana'] = nil
+  require('mana').setup()
+end, { desc = 'Reload mana plugin' })
