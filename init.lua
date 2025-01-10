@@ -678,7 +678,7 @@ require('lazy').setup {
           end,
         },
       }
-      require('lspconfig').hls.setup {}
+      -- require('lspconfig').hls.setup {}
     end,
   },
 
@@ -725,6 +725,12 @@ require('lazy').setup {
         css = { 'prettierd' },
         zig = { 'zigfmt' },
         json = { 'prettierd' },
+        haskell = { 'ormolu' },
+      },
+      formatters = {
+        ormolu = {
+          cmd = 'ormolu',
+        },
       },
     },
   },
@@ -950,6 +956,7 @@ require('lazy').setup {
   },
 
   {
+    -- 'pixqc/mana.nvim',
     name = 'mana.nvim',
     dir = '~/dev/mana.nvim/',
     main = 'mana',
@@ -972,8 +979,8 @@ require('lazy').setup {
         },
         gemini_flash = {
           endpoint = 'aistudio',
-          name = 'gemini-2.0-flash-exp',
-          system_prompt = 'be brief, get to the point',
+          name = 'gemini-1.5-flash-latest',
+          system_prompt = '',
           temperature = 0.7,
           top_p = 0.9,
         },
@@ -985,15 +992,9 @@ require('lazy').setup {
           top_p = 0.9,
         },
       },
-      endpoints = {
-        aistudio = {
-          url = 'https://generativelanguage.googleapis.com/v1beta/chat/completions',
-          env = 'GOOGLE_AISTUDIO_API_KEY',
-        },
-        openrouter = {
-          url = 'https://openrouter.ai/api/v1/chat/completions',
-          env = 'OPENROUTER_API_KEY',
-        },
+      envs = {
+        aistudio = 'GOOGLE_AISTUDIO_API_KEY',
+        openrouter = 'OPENROUTER_API_KEY',
       },
     },
   },
@@ -1026,3 +1027,4 @@ vim.keymap.set('n', '<leader>mm', function()
   package.loaded['mana'] = nil
   require('mana').setup()
 end, { desc = 'Reload mana plugin' })
+vim.keymap.set('n', '<leader>mc', ':Mana clear<CR>')
