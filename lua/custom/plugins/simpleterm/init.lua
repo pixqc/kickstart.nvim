@@ -14,6 +14,8 @@ M.setup = function(opts)
         vim.cmd 'wincmd j'
         vim.cmd('buffer ' .. term_bufnr)
         vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
+        vim.cmd 'setlocal wrap'
+        vim.cmd 'setlocal noscrollbind'
       end
     else
       vim.cmd 'split'
@@ -21,6 +23,8 @@ M.setup = function(opts)
       vim.cmd 'terminal'
       vim.cmd('resize ' .. math.floor(vim.o.lines * 0.3))
       vim.cmd 'startinsert'
+      vim.cmd 'setlocal wrap'
+      vim.cmd 'setlocal noscrollbind'
     end
   end
 
