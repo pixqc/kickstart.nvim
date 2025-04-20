@@ -726,10 +726,19 @@ require('lazy').setup {
         zig = { 'zigfmt' },
         json = { 'prettierd' },
         haskell = { 'ormolu' },
+        sql = { 'sql_formatter' },
+        ocaml = { 'ocamlformat' },
       },
       formatters = {
         ormolu = {
           cmd = 'ormolu',
+        },
+        biome = {
+          cmd = 'biome',
+          args = { 'format', '--stdin-file-path', '$FILENAME', '--indent-style', 'space' },
+        },
+        ocamlformat = {
+          cmd = 'ocamlformat',
         },
       },
     },
@@ -954,51 +963,6 @@ require('lazy').setup {
     main = 'custom.plugins.simpleterm',
     opts = {},
   },
-
-  {
-    -- 'pixqc/mana.nvim',
-    name = 'mana.nvim',
-    dir = '~/dev/mana.nvim/',
-    main = 'mana',
-    opts = {
-      default_model = 'deepseekv3',
-      models = {
-        sonnet = {
-          endpoint = 'openrouter',
-          name = 'anthropic/claude-3.5-sonnet:beta',
-          system_prompt = '',
-          temperature = 0.7,
-          top_p = 0.9,
-        },
-        deepseekv3 = {
-          endpoint = 'openrouter',
-          name = 'deepseek/deepseek-chat',
-          system_prompt = '',
-          temperature = 0.7,
-          top_p = 0.9,
-        },
-        gemini_flash = {
-          endpoint = 'aistudio',
-          name = 'gemini-1.5-flash-latest',
-          system_prompt = '',
-          temperature = 0.7,
-          top_p = 0.9,
-        },
-        gemini_flash_thinking = {
-          endpoint = 'aistudio',
-          name = 'gemini-2.0-flash-thinking-exp',
-          system_prompt = '',
-          temperature = 0.7,
-          top_p = 0.9,
-        },
-      },
-      envs = {
-        aistudio = 'GOOGLE_AISTUDIO_API_KEY',
-        openrouter = 'OPENROUTER_API_KEY',
-      },
-    },
-  },
-
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
   -- In normal mode type `<space>sh` then write `lazy.nvim-plugin`
